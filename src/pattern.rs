@@ -331,6 +331,11 @@ where
         matches: &[SearchMatches<L>],
         rule_name: Symbol,
     ) -> Vec<Id> {
+        eperf_log_start!(
+            "apply matches (rule={}, num_matches={})",
+            &rule_name,
+            matches.len()
+        );
         let mut added = vec![];
         let ast = self.ast.as_ref();
         let mut id_buf = vec![0.into(); ast.len()];
@@ -345,8 +350,11 @@ where
                     did_something = did_something_temp;
                     id = id_temp;
                 } else {
+                    eperf_log_start!("apply match");
                     id = apply_pat(&mut id_buf, ast, egraph, subst);
                     did_something = egraph.union(id, mat.eclass);
+                    eperf_log_end!("apply match");
+                    egraph.match_counter += 1;
                 }
 
                 if did_something {
@@ -354,6 +362,11 @@ where
                 }
             }
         }
+        eperf_log_end!(
+            "apply matches (rule={}, num_matches={})",
+            &rule_name,
+            matches.len()
+        );
         added
     }
 

@@ -84,6 +84,9 @@ pub struct EGraph<L: Language, N: Analysis<L>> {
     /// Only manually set it if you know what you're doing.
     #[cfg_attr(feature = "serde-1", serde(skip))]
     pub clean: bool,
+
+    /// eperf debug use, a global counter for all the matches
+    pub match_counter: usize,
 }
 
 #[cfg(feature = "serde-1")]
@@ -120,6 +123,8 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
             memo: Default::default(),
             analysis_pending: Default::default(),
             classes_by_op: Default::default(),
+
+            match_counter: 0,
         }
     }
 
@@ -735,6 +740,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// This function makes a new eclass in the egraph (but doesn't touch explanations)
     fn make_new_eclass(&mut self, enode: L) -> Id {
         let id = self.unionfind.make_set();
+        eperf_log_start!("Add new node (id={}, enode={:?})", id, &enode);
         log::trace!("  ...adding to {}", id);
         let class = EClass {
             id,
@@ -753,6 +759,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
         self.pending.push((enode.clone(), id));
 
         self.classes.insert(id, class);
+        eperf_log_end!("Add new node (id={}, enode={:?})", id, &enode);
         assert!(self.memo.insert(enode, id).is_none());
 
         id
@@ -854,6 +861,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
         rule: Option<Justification>,
         any_new_rhs: bool,
     ) -> bool {
+        eperf_log_start!("Union (left={}, right={})", enode_id1, enode_id2);
         N::pre_union(self, enode_id1, enode_id2, &rule);
 
         self.clean = false;
@@ -865,6 +873,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
                     explain.alternate_rewrite(enode_id1, enode_id2, rule.unwrap());
                 }
             }
+            eperf_log_end!("Union (left={}, right={})", enode_id1, enode_id2);
             return false;
         }
         // make sure class2 has fewer parents
@@ -899,6 +908,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
         concat_vecs(&mut class1.parents, class2.parents);
 
         N::modify(self, id1);
+        eperf_log_end!("Union (left={}, right={})", enode_id1, enode_id2);
         true
     }
 
@@ -1117,6 +1127,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// assert_eq!(egraph.find(ax), egraph.find(ay));
     /// ```
     pub fn rebuild(&mut self) -> usize {
+        eperf_log_start!("rebuild");
         let old_hc_size = self.memo.len();
         let old_n_eclasses = self.number_of_classes();
 
@@ -1145,6 +1156,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
 
         debug_assert!(self.check_memo());
         self.clean = true;
+        eperf_log_end!("rebuild");
         n_unions
     }
 

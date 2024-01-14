@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 /*!
@@ -53,6 +54,85 @@ mod run;
 mod subst;
 mod unionfind;
 mod util;
+
+use chrono::Local;
+fn current_time_string() -> String {
+    let now = Local::now();
+    now.format("%S%.6f").to_string()
+}
+
+/// Logs a message with a timestamp.
+///
+/// This macro is used by `eperf_log_start!` and `eperf_log_end!` to
+/// provide detailed logging information.
+///
+/// # Arguments
+/// * `$log_type` - A string indicating the log type (e.g., "START" or "END" or "" (empty)).
+/// * `$fmt` - A format string.
+/// * `$($arg:tt)*` - Additional arguments to be formatted.
+///
+/// # Examples
+/// ```
+/// eperf_log!("info", "Process {}", "running");
+/// // Outputs: EPERF_LOG [MockedTime]: Process running info
+/// ```
+#[macro_export]
+macro_rules! eperf_log {
+    ($log_type:expr, $fmt:expr) => {
+        println!("{}", format!("EPERF_LOG [{}]: {} {}", current_time_string(), $fmt, $log_type));
+    };
+    ($log_type:expr, $fmt:expr, $($arg:tt)*) => {
+        println!("{}", format!("EPERF_LOG [{}]: {} {}", current_time_string(), format_args!($fmt, $($arg)*), $log_type));
+    }
+}
+
+const EPERF_START_SIGNATURE: &str = "START";
+const EPERF_END_SIGNATURE: &str = "END";
+
+/// Logs a message with a timestamp, indicating the start of an event.
+///
+/// # Examples
+/// ```
+/// eperf_log_start!("Iteration {}", 1);
+/// // Outputs: EPERF_LOG [MockedTime]: Iteration 1 START
+/// ```
+#[macro_export]
+macro_rules! eperf_log_start {
+    ($fmt:expr) => {
+        eperf_log!(EPERF_START_SIGNATURE, $fmt);
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        eperf_log!(EPERF_START_SIGNATURE, $fmt, $($arg)*);
+    }
+}
+
+/// Logs a message with a timestamp, indicating the end of an event.
+///
+/// # Examples
+/// ```
+/// eperf_log_end!("Iteration {}", 1);
+/// // Outputs: EPERF_LOG [MockedTime]: Iteration 1 END
+/// ```
+#[macro_export]
+macro_rules! eperf_log_end {
+    ($fmt:expr) => {
+        eperf_log!(EPERF_END_SIGNATURE, $fmt);
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        eperf_log!(EPERF_END_SIGNATURE, $fmt, $($arg)*);
+    }
+}
+
+/// Logs a message with a timestamp, while does not indicate a log type
+#[macro_export]
+macro_rules! eperf_log_simple {
+    ($fmt:expr) => {
+        eperf_log!("", $fmt);
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        eperf_log!("", $fmt, $($arg)*);
+    }
+}
 
 /// A key to identify [`EClass`]es within an
 /// [`EGraph`].

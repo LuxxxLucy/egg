@@ -389,6 +389,7 @@ where
     /// [`roots`](Runner::roots) field, ordered by
     /// insertion order.
     pub fn with_expr(mut self, expr: &RecExpr<L>) -> Self {
+        eperf_log_start!("Add initial expr");
         let id = self.egraph.add_expr(expr);
         self.roots.push(id);
         self
@@ -412,6 +413,7 @@ where
         let rules: Vec<&Rewrite<L, N>> = rules.into_iter().collect();
         check_rules(&rules);
         self.egraph.rebuild();
+        eperf_log_end!("Add initial expr");
         loop {
             let iter = self.run_one(&rules);
             self.iterations.push(iter);
@@ -515,6 +517,8 @@ where
         self.try_start();
         let mut result = self.check_limits();
 
+        eperf_log_start!("run (Iteration={})", self.iterations.len());
+
         let egraph_nodes = self.egraph.total_size();
         let egraph_classes = self.egraph.number_of_classes();
 
@@ -546,6 +550,8 @@ where
             })
         });
 
+        eperf_log_simple!("find matches ({} matches)", matches.len());
+
         let search_time = start_time.elapsed().as_secs_f64();
         info!("Search time: {}", search_time);
 
@@ -568,6 +574,7 @@ where
                 self.check_limits()
             })
         });
+        eperf_log_simple!("applied ({:?})", applied);
 
         let apply_time = apply_time.elapsed().as_secs_f64();
         info!("Apply time: {}", apply_time);
@@ -597,9 +604,11 @@ where
             && (egraph_classes == self.egraph.number_of_classes());
 
         if can_be_saturated {
+            eperf_log_simple!("Saturated, terminate\n");
             result = result.and(Err(StopReason::Saturated))
         }
 
+        eperf_log_end!("run (Iteration={})", self.iterations.len());
         Iteration {
             applied,
             egraph_nodes,
